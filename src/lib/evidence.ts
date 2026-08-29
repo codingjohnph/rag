@@ -92,10 +92,10 @@ export async function completeCitationEvidence(
       }
 
       const evidencePart = message.parts.find(
-        (part): part is EvidenceToolPart =>
+        (part) =>
           part.type === 'tool-presentEvidence' &&
           part.state === 'output-available'
-      )
+      ) as EvidenceToolPart | undefined
       const existingLabels = new Set(
         evidencePart?.output?.items?.map((item) => item.label) ?? []
       )
@@ -123,14 +123,15 @@ export async function completeCitationEvidence(
         ) {
           return part
         }
-        const items = part.output?.items ?? []
+        const toolPart = part as EvidenceToolPart
+        const items = toolPart.output?.items ?? []
         const merged = [...items]
         for (const item of resolved) {
           if (!merged.some((existing) => existing.label === item.label)) {
             merged.push(item)
           }
         }
-        return { ...part, output: { items: merged } }
+        return { ...part, output: { items: merged } } as UIMessage['parts'][number]
       })
 
       return { ...message, parts }
