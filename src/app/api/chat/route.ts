@@ -12,6 +12,7 @@ import {
   upsertMessage
 } from '@/lib/db/queries'
 import { titleFromQuestion } from '@/lib/files'
+import { completeCitationEvidence } from '@/lib/evidence'
 import { getMessageText } from '@/lib/messages'
 import { buildSystemPrompt } from '@/lib/prompts'
 import {
@@ -122,7 +123,8 @@ export async function POST(request: NextRequest) {
       originalMessages: incoming,
       generateMessageId: () => randomUUID(),
       onEnd: async ({ messages }) => {
-        await replaceChatMessages(body.chatId, messages)
+        const completed = await completeCitationEvidence(messages, body.chatId)
+        await replaceChatMessages(body.chatId, completed)
       }
     })
   } catch (error) {

@@ -91,7 +91,21 @@ export function MessageBubble({
     const item = evidence.find((entry) => entry.label === label)
     if (item) {
       setSelectedEvidence({ label, item })
+      return
     }
+    // The model cited a label with no attached evidence (e.g. an old message or
+    // an out-of-range label). Open the modal anyway so the click is never dead.
+    setSelectedEvidence({
+      label,
+      item: {
+        label,
+        chunkId: '',
+        filename: 'Unknown source',
+        locator: '',
+        excerpt: `No source excerpt is available for [${label}]. The assistant referenced this citation without attaching the matching passage.`,
+        why: ''
+      }
+    })
   }
 
   return (

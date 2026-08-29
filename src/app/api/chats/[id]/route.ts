@@ -5,6 +5,7 @@ import {
   listMessages
 } from '@/lib/db/queries'
 import { isAuthorized } from '@/lib/gate'
+import { completeCitationEvidence } from '@/lib/evidence'
 import { NextRequest } from 'next/server'
 import type { ChatItem, DocumentItem } from '@/lib/types'
 
@@ -34,6 +35,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       listDocuments(id)
     ])
 
+    const completedMessages = await completeCitationEvidence(messages, id)
+
     const chatItem: ChatItem = {
       id: chat.id,
       title: chat.title,
@@ -54,7 +57,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
     return Response.json({
       chat: chatItem,
-      messages,
+      messages: completedMessages,
       documents: documentItems
     })
   } catch (error) {

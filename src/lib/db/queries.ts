@@ -197,3 +197,29 @@ export async function getChunksByIds(ids: string[], chatId: string) {
       and(eq(documentChunks.chatId, chatId), inArray(documentChunks.id, ids))
     )
 }
+
+export async function getChunkForCitation(
+  chatId: string,
+  documentId: string,
+  index: number
+) {
+  const [row] = await db
+    .select({
+      id: documentChunks.id,
+      content: documentChunks.content,
+      page: documentChunks.page,
+      section: documentChunks.section,
+      filename: documents.filename
+    })
+    .from(documentChunks)
+    .innerJoin(documents, eq(documentChunks.documentId, documents.id))
+    .where(
+      and(
+        eq(documentChunks.chatId, chatId),
+        eq(documentChunks.documentId, documentId),
+        eq(documentChunks.index, index)
+      )
+    )
+    .limit(1)
+  return row ?? null
+}
