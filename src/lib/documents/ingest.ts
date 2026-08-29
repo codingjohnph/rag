@@ -1,5 +1,6 @@
 import { insertChunks, insertDocument } from '@/lib/db/queries'
 import { embedTexts } from '@/lib/ai/embed'
+import { DocumentIngestError } from './errors'
 import { chunkDocument } from './chunk'
 import { parseDocument } from './parse'
 
@@ -18,11 +19,23 @@ export async function ingestDocument({
   sizeBytes,
   buffer
 }: IngestInput) {
-  const parsed = await parseDocument(buffer, mimeType)
+  let parsed
+  try {
+    parsed = await parseDocument(buffer, mimeType)
+  } catch {
+    throw new DocumentIngestError(
+      mimeType === 'application/pdf'
+        ? 'This PDF could not be read. It may be corrupted or password-protected.'
+        : 'This file could not be read. It may be corrupted or in an unsupported format.'
+    )
+  }
+
   const chunks = chunkDocument(parsed)
 
   if (chunks.length === 0) {
-    throw new Error('No extractable text was found in this file.')
+    throw new DocumentIngestError(
+      'No readable text was found in this file. It may be a scanned PDF or an image-based document.'
+    )
   }
 
   const embeddings = await embedTexts(chunks.map((chunk) => chunk.content))

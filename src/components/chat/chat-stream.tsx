@@ -9,11 +9,24 @@ import { MessageList } from './message-list'
 import { ChatError, ChatLoading, EmptyState } from './states'
 import { UploadButton } from './upload-button'
 import { titleFromFilename } from '@/lib/files'
+import { friendlyStreamError } from '@/lib/errors'
 import type { ChatItem, DocumentItem } from '@/lib/types'
 
 type ChatStreamProps = {
   chatId: string | null
   onCreated: (chat: ChatItem) => void
+}
+
+type LoadChatResponse = {
+  chat?: { title: string }
+  messages?: UIMessage[]
+  documents?: DocumentItem[]
+  error?: string
+}
+
+type UploadResponse = {
+  document?: DocumentItem
+  error?: string
 }
 
 export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
@@ -32,7 +45,8 @@ export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
 
   const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [title, setTitle] = useState('New conversation')
-  const [loadError, setLoadError] = useState(false)
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
   const [loading, setLoading] = useState(chatId !== null)
   const [reloadKey, setReloadKey] = useState(0)
   const [ingesting, setIngesting] = useState(false)
@@ -48,7 +62,8 @@ export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
     setTitle(chatId ? 'Conversation' : 'New conversation')
     setDocuments([])
     setLoading(chatId !== null && chatId !== createdChatId)
-    setLoadError(false)
+    setLoadErrorMessage(null)
+    setSendError(null)
     if (createdChatId !== null && createdChatId !== chatId) {
       setCreatedChatId(null)
     }
@@ -64,25 +79,34 @@ export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
     async function loadChat() {
       try {
         const response = await fetch(`/api/chats/${chatId}`)
+        let body: LoadChatResponse | null = null
+        try {
+          body = (await response.json()) as LoadChatResponse
+        } catch {
+          body = null
+        }
         if (!response.ok) {
           if (!cancelled) {
-            setLoadError(true)
+            setLoadErrorMessage(
+              response.status === 404
+                ? 'This conversation no longer exists.'
+                : body?.error ??
+                    'This conversation could not be loaded. Please try again.'
+            )
           }
           return
         }
-        const body = (await response.json()) as {
-          chat: { title: string }
-          messages: UIMessage[]
-          documents: DocumentItem[]
-        }
-        if (!cancelled) {
-          setTitle(body.chat.title)
-          setMessages(body.messages)
-          setDocuments(body.documents)
+        if (body && !cancelled) {
+          setLoadErrorMessage(null)
+          setTitle(body.chat?.title ?? 'Conversation')
+          setMessages(body.messages ?? [])
+          setDocuments(body.documents ?? [])
         }
       } catch {
         if (!cancelled) {
-          setLoadError(true)
+          setLoadErrorMessage(
+            "Couldn't reach the server. Check your connection and try again."
+          )
         }
       } finally {
         if (!cancelled) {
@@ -118,9 +142,12 @@ export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
   async function handleSend(text: string) {
     try {
       const id = await ensureChat()
+      setSendError(null)
       await sendMessage({ text }, { body: { chatId: id } })
-    } catch {
-      // Stream errors surface through `error`.
+    } catch (failure) {
+      // Failures before the stream (chat creation, network) never reach
+      // `error` from useChat, so surface them here.
+      setSendError(friendlyStreamError(failure))
     }
   }
 
@@ -135,12 +162,18 @@ export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
         method: 'POST',
         body: formData
       })
-      const body = (await response.json()) as {
-        document?: DocumentItem
-        error?: string
+      let body: UploadResponse | null = null
+      try {
+        body = (await response.json()) as UploadResponse
+      } catch {
+        body = null
       }
-      if (!response.ok || !body.document) {
-        throw new Error(body.error ?? 'Upload failed. Please try again.')
+      if (!response.ok || !body?.document) {
+        throw new Error(
+          body?.error
+            ? friendlyStreamError(new Error(body.error))
+            : 'We could not index this file. Please try again.'
+        )
       }
       const uploaded = body.document as DocumentItem
       setDocuments((current) => [
@@ -166,6 +199,7 @@ export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
   const isBusy = ingesting || status === 'submitted' || status === 'streaming'
   const hasDocuments = documents.length > 0
   const isDraft = chatId === null
+  const streamError = error ? friendlyStreamError(error) : null
 
   useEffect(() => {
     stickToBottom.current = true
@@ -240,10 +274,13 @@ export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
           </div>
         ) : loading ? (
           <ChatLoading />
-        ) : loadError ? (
+        ) : loadErrorMessage ? (
           <ChatError
-            message="Failed to load this conversation."
-            onRetry={() => setReloadKey((key) => key + 1)}
+            message={loadErrorMessage}
+            onRetry={() => {
+              setLoadErrorMessage(null)
+              setReloadKey((key) => key + 1)
+            }}
           />
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-6 p-8">
@@ -279,7 +316,7 @@ export function ChatStream({ chatId, onCreated }: ChatStreamProps) {
         onSend={(text) => void handleSend(text)}
         onUpload={handleUpload}
         disabled={isBusy}
-        error={error?.message}
+        error={streamError ?? sendError ?? undefined}
       />
     </div>
   )

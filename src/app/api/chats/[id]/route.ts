@@ -20,39 +20,50 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
   const { id } = await params
 
-  const chat = await getChat(id)
-  if (!chat) {
-    return Response.json({ error: 'Conversation not found' }, { status: 404 })
+  try {
+    const chat = await getChat(id)
+    if (!chat) {
+      return Response.json(
+        { error: 'This conversation no longer exists.' },
+        { status: 404 }
+      )
+    }
+
+    const [messages, documents] = await Promise.all([
+      listMessages(id),
+      listDocuments(id)
+    ])
+
+    const chatItem: ChatItem = {
+      id: chat.id,
+      title: chat.title,
+      createdAt: chat.createdAt.toISOString(),
+      updatedAt: chat.updatedAt.toISOString()
+    }
+
+    const documentItems: DocumentItem[] = documents.map((document) => ({
+      id: document.id,
+      chatId: document.chatId,
+      filename: document.filename,
+      mimeType: document.mimeType,
+      pageCount: document.pageCount,
+      chunkCount: document.chunkCount,
+      status: document.status as DocumentItem['status'],
+      createdAt: document.createdAt.toISOString()
+    }))
+
+    return Response.json({
+      chat: chatItem,
+      messages,
+      documents: documentItems
+    })
+  } catch (error) {
+    console.error('[chats] load failed:', error)
+    return Response.json(
+      { error: 'This conversation could not be loaded. Please try again.' },
+      { status: 500 }
+    )
   }
-
-  const [messages, documents] = await Promise.all([
-    listMessages(id),
-    listDocuments(id)
-  ])
-
-  const chatItem: ChatItem = {
-    id: chat.id,
-    title: chat.title,
-    createdAt: chat.createdAt.toISOString(),
-    updatedAt: chat.updatedAt.toISOString()
-  }
-
-  const documentItems: DocumentItem[] = documents.map((document) => ({
-    id: document.id,
-    chatId: document.chatId,
-    filename: document.filename,
-    mimeType: document.mimeType,
-    pageCount: document.pageCount,
-    chunkCount: document.chunkCount,
-    status: document.status as DocumentItem['status'],
-    createdAt: document.createdAt.toISOString()
-  }))
-
-  return Response.json({
-    chat: chatItem,
-    messages,
-    documents: documentItems
-  })
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
@@ -61,12 +72,23 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
   }
   const { id } = await params
 
-  const chat = await getChat(id)
-  if (!chat) {
-    return Response.json({ error: 'Conversation not found' }, { status: 404 })
+  try {
+    const chat = await getChat(id)
+    if (!chat) {
+      return Response.json(
+        { error: 'This conversation no longer exists.' },
+        { status: 404 }
+      )
+    }
+
+    await deleteChat(id)
+
+    return Response.json({ ok: true })
+  } catch (error) {
+    console.error('[chats] delete failed:', error)
+    return Response.json(
+      { error: 'We could not delete this conversation. Please try again.' },
+      { status: 500 }
+    )
   }
-
-  await deleteChat(id)
-
-  return Response.json({ ok: true })
 }

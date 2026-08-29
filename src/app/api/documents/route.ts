@@ -1,7 +1,9 @@
 import { getChat, touchChat } from '@/lib/db/queries'
 import { isAuthorized } from '@/lib/gate'
 import { ingestDocument } from '@/lib/documents/ingest'
+import { DocumentIngestError } from '@/lib/documents/errors'
 import { titleFromFilename } from '@/lib/files'
+import { formatBytes } from '@/lib/errors'
 import { MAX_FILE_BYTES } from '@/lib/constants'
 import { NextRequest } from 'next/server'
 import type { DocumentItem } from '@/lib/types'
@@ -35,7 +37,16 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const formData = await request.formData()
+  let formData: FormData
+  try {
+    formData = await request.formData()
+  } catch {
+    return Response.json(
+      { error: 'We could not read the upload. Please try again.' },
+      { status: 400 }
+    )
+  }
+
   const chatId = String(formData.get('chatId') ?? '')
   const file = formData.get('file')
 
@@ -44,12 +55,18 @@ export async function POST(request: NextRequest) {
   }
 
   if (!(file instanceof File)) {
-    return Response.json({ error: 'Please choose a file.' }, { status: 400 })
+    return Response.json(
+      { error: 'Please choose a file to upload.' },
+      { status: 400 }
+    )
   }
 
   const chat = await getChat(chatId)
   if (!chat) {
-    return Response.json({ error: 'Conversation not found' }, { status: 404 })
+    return Response.json(
+      { error: 'This conversation no longer exists.' },
+      { status: 404 }
+    )
   }
 
   const mimeType = resolveMimeType(file.name, file.type)
@@ -61,12 +78,17 @@ export async function POST(request: NextRequest) {
   }
 
   if (file.size === 0) {
-    return Response.json({ error: 'The file is empty.' }, { status: 400 })
+    return Response.json(
+      { error: 'The file is empty. Choose a file that contains text.' },
+      { status: 400 }
+    )
   }
 
   if (file.size > MAX_FILE_BYTES) {
     return Response.json(
-      { error: 'The file is too large. Maximum size is 4 MB.' },
+      {
+        error: `The file is too large. The maximum size is ${formatBytes(MAX_FILE_BYTES)}.`
+      },
       { status: 413 }
     )
   }
@@ -101,11 +123,12 @@ export async function POST(request: NextRequest) {
 
     return Response.json({ document: documentItem })
   } catch (error) {
+    if (error instanceof DocumentIngestError) {
+      return Response.json({ error: error.message }, { status: 422 })
+    }
+    console.error('[documents] ingest failed:', error)
     return Response.json(
-      {
-        error:
-          error instanceof Error ? error.message : 'Failed to index the file.'
-      },
+      { error: 'We could not index this file. Please try again.' },
       { status: 500 }
     )
   }

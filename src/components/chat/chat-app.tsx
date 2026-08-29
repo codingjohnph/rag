@@ -18,6 +18,7 @@ export function ChatApp({ chats, selectedChatId, initialDraft }: ChatAppProps) {
   const [chatId, setChatId] = useState<string | null>(selectedChatId)
   const [draft, setDraft] = useState(initialDraft && selectedChatId === null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [previousChats, setPreviousChats] = useState(chats)
 
   if (previousChats !== chats) {
@@ -35,6 +36,14 @@ export function ChatApp({ chats, selectedChatId, initialDraft }: ChatAppProps) {
     const query = params.toString()
     router.replace(query ? `/?${query}` : '/', { scroll: false })
   }, [chatId, draft, router])
+
+  useEffect(() => {
+    if (!deleteError) {
+      return
+    }
+    const timeout = setTimeout(() => setDeleteError(null), 4000)
+    return () => clearTimeout(timeout)
+  }, [deleteError])
 
   function selectChat(id: string) {
     setChatId(id)
@@ -58,11 +67,20 @@ export function ChatApp({ chats, selectedChatId, initialDraft }: ChatAppProps) {
   }
 
   async function handleDeleteChat(id: string): Promise<void> {
+    let ok = false
     try {
-      await fetch(`/api/chats/${id}`, { method: 'DELETE' })
+      const response = await fetch(`/api/chats/${id}`, { method: 'DELETE' })
+      ok = response.ok
     } catch {
-      // Remove from the list even if the request failed.
+      ok = false
     }
+    if (!ok) {
+      setDeleteError(
+        "This conversation couldn't be deleted. Please try again."
+      )
+      return
+    }
+    setDeleteError(null)
     setChatList((current) => current.filter((chat) => chat.id !== id))
     if (chatId === id) {
       setChatId(null)
@@ -125,6 +143,15 @@ export function ChatApp({ chats, selectedChatId, initialDraft }: ChatAppProps) {
           onChatCreated={handleChatCreated}
         />
       </div>
+
+      {deleteError && (
+        <div
+          role="alert"
+          className="fixed left-1/2 top-3 z-50 -translate-x-1/2 rounded-full border-2 border-ink bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-card"
+        >
+          {deleteError}
+        </div>
+      )}
     </div>
   )
 }
