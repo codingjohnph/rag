@@ -83,6 +83,7 @@ erDiagram
         text title
         timestamp created_at
         timestamp updated_at
+        timestamp deleted_at "soft delete marker"
     }
     documents {
         text id PK
@@ -125,13 +126,16 @@ Key points:
 - `messages.data` stores the complete Vercel AI SDK `UIMessage` (parts, tool
   calls, tool output), so the UI can re-render citations and evidence after a
   reload.
+- **Soft delete.** Deleting a chat sets `deleted_at` instead of removing the
+  row, so the conversation (messages, documents, chunks) stays in the database
+  for auditability while staying hidden from the UI.
 
 ### API
 
 | Route                            | Purpose                                          |
 | -------------------------------- | ------------------------------------------------ |
 | `GET` / `POST /api/chats`        | List chats / create a chat                       |
-| `GET` / `DELETE /api/chats/[id]` | Load a chat (messages + documents) / delete it   |
+| `GET` / `DELETE /api/chats/[id]` | Load a chat (messages + documents) / soft-delete it (row retained, hidden from UI) |
 | `POST /api/documents`            | Upload and ingest a document                     |
 | `POST /api/chat`                 | Streaming RAG answer (tools, citations, persist) |
 | `GET /api/health`                | Health check                                     |
@@ -187,6 +191,10 @@ src/
 - **Direct `scrollTop` instead of `scrollIntoView`.** Smooth `scrollIntoView`
   silently failed inside the nested `overflow-hidden` layout; the message list
   now scrolls directly with stick-to-bottom tracking.
+- **Soft deletes over hard deletes.** Chat deletion stamps `deleted_at` rather
+  than removing rows, so conversations are never lost — useful in a demo where
+  you might want to recover from accidental deletes. The trade-off is that
+  deleted rows accumulate forever unless a cleanup job prunes them.
 
 ## Time spent
 
