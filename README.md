@@ -205,13 +205,11 @@ src/
   balances context density against retrieval precision and preserves locators.
 - **Extension-based MIME validation** rather than trusting the browser-reported
   MIME type, which varies per OS/browser (e.g. `.md` was being rejected).
-- **Direct `scrollTop` instead of `scrollIntoView`.** Smooth `scrollIntoView`
-  silently failed inside the nested `overflow-hidden` layout; the message list
-  now scrolls directly with stick-to-bottom tracking.
 - **Soft deletes over hard deletes.** Chat deletion stamps `deleted_at` rather
   than removing rows, so conversations are never lost — useful in a demo where
   you might want to recover from accidental deletes. The trade-off is that
   deleted rows accumulate forever unless a cleanup job prunes them.
+- **4.5 MB file size limit.** Uploads are capped at 4.5 MB to stay within Vercel's request payload limits on the Hobby deployment.
 
 ## Time spent
 
