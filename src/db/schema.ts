@@ -26,7 +26,8 @@ export const chats = pgTable('chats', {
     .defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
-    .defaultNow()
+    .defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true })
 })
 
 export const documents = pgTable(

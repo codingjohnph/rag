@@ -1,6 +1,6 @@
 import 'server-only'
 import { randomUUID } from 'node:crypto'
-import { and, asc, desc, eq, inArray, not, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, not, sql } from 'drizzle-orm'
 import type { UIMessage } from 'ai'
 import { db } from '@/db'
 import { chats, documentChunks, documents, messages } from '@/db/schema'
@@ -12,14 +12,18 @@ export async function createChat(title = 'New conversation') {
 }
 
 export async function listChats() {
-  return db.select().from(chats).orderBy(desc(chats.updatedAt))
+  return db
+    .select()
+    .from(chats)
+    .where(isNull(chats.deletedAt))
+    .orderBy(desc(chats.updatedAt))
 }
 
 export async function getChat(chatId: string) {
   const [chat] = await db
     .select()
     .from(chats)
-    .where(eq(chats.id, chatId))
+    .where(and(eq(chats.id, chatId), isNull(chats.deletedAt)))
     .limit(1)
   return chat ?? null
 }
@@ -32,7 +36,10 @@ export async function touchChat(chatId: string, title?: string) {
 }
 
 export async function deleteChat(chatId: string) {
-  await db.delete(chats).where(eq(chats.id, chatId))
+  await db
+    .update(chats)
+    .set({ deletedAt: new Date() })
+    .where(eq(chats.id, chatId))
 }
 
 export async function listMessages(chatId: string): Promise<UIMessage[]> {
