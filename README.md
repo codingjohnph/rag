@@ -7,6 +7,23 @@ it. Answers are streamed, retrieval-grounded, and backed by clickable citations
 Built with **Next.js 16** (App Router, TypeScript, Turbopack), the **Vercel AI
 SDK 7**, **Neon Lakebase Postgres** with `pgvector`, and **Drizzle ORM**.
 
+## Table of Contents
+
+- [Setup](#setup)
+  - [Prerequisites](#prerequisites)
+  - [Install and run](#install-and-run)
+  - [Environment variables](#environment-variables)
+  - [Scripts](#scripts)
+- [Architecture](#architecture)
+  - [Data flow](#data-flow)
+  - [Database schema](#database-schema)
+  - [API](#api)
+  - [Project structure](#project-structure)
+- [Key trade-offs](#key-trade-offs)
+- [Time spent](#time-spent)
+- [AI tools used](#ai-tools-used)
+- [Example: correcting AI-generated output](#example-correcting-ai-generated-output)
+
 ## Setup
 
 ### Prerequisites
@@ -28,15 +45,15 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Environment variables
 
-| Variable                       | Purpose                                                                        |
-| ------------------------------ | ------------------------------------------------------------------------------ |
-| `DATABASE_URL`                 | Pooled connection for app traffic                                              |
-| `DATABASE_URL_UNPOOLED`        | Direct connection for migrations                                               |
-| `NEON_BRANCH`                  | Linked Neon branch name                                                        |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Embeddings (required)                                                          |
-| `DEEPSEEK_API_KEY`             | DeepSeek chat model (default)                                                  |
-| `OPENAI_API_KEY`               | OpenAI chat model (optional)                                                   |
-| `CHAT_MODEL`                   | e.g. `deepseek:deepseek-chat`, `openai:gpt-4o-mini`, `google:gemini-2.0-flash` |
+| Variable                       | Purpose                                                                                                                                         |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                 | Pooled connection for app traffic                                                                                                               |
+| `DATABASE_URL_UNPOOLED`        | Direct connection for migrations                                                                                                                |
+| `NEON_BRANCH`                  | Linked Neon branch name                                                                                                                         |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Embeddings (required)                                                                                                                           |
+| `DEEPSEEK_API_KEY`             | DeepSeek chat model (default)                                                                                                                   |
+| `OPENAI_API_KEY`               | OpenAI chat model (optional)                                                                                                                    |
+| `CHAT_MODEL`                   | e.g. `deepseek:deepseek-chat`, `openai:gpt-4o-mini`, `google:gemini-2.0-flash`                                                                  |
 | `APP_PASSWORD`                 | Optional. If set, the app shows an unlock screen and all chat/upload APIs require this password (anti-abuse for demos). Leave empty to disable. |
 
 ### Scripts
@@ -132,13 +149,13 @@ Key points:
 
 ### API
 
-| Route                            | Purpose                                          |
-| -------------------------------- | ------------------------------------------------ |
-| `GET` / `POST /api/chats`        | List chats / create a chat                       |
+| Route                            | Purpose                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| `GET` / `POST /api/chats`        | List chats / create a chat                                                         |
 | `GET` / `DELETE /api/chats/[id]` | Load a chat (messages + documents) / soft-delete it (row retained, hidden from UI) |
-| `POST /api/documents`            | Upload and ingest a document                     |
-| `POST /api/chat`                 | Streaming RAG answer (tools, citations, persist) |
-| `GET /api/health`                | Health check                                     |
+| `POST /api/documents`            | Upload and ingest a document                                                       |
+| `POST /api/chat`                 | Streaming RAG answer (tools, citations, persist)                                   |
+| `GET /api/health`                | Health check                                                                       |
 
 ### Project structure
 
